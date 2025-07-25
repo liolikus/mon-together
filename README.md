@@ -95,18 +95,6 @@ Copy `.env.example` to `.env` and configure:
 - `VITE_SESSION_NAME`: Global session name
 - `VITE_SESSION_PASSWORD`: Session password
 
-### Deploy to Vercel
-1. Push to GitHub
-2. Connect repository to Vercel
-3. Add environment variables in Vercel dashboard
-4. Deploy automatically
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
-
-## Contributing
-
-This is a demonstration project showcasing MultiSynq's real-time synchronization capabilities with blockchain integration.
-
----
 
 **Built with ❤️ using MultiSynq, React, and Monad Testnet**
