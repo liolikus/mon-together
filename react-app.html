@@ -254,10 +254,10 @@
                             
                             // Get configuration from environment variables or fallback to defaults
                             const config = {
-                                apiKey: import.meta.env?.VITE_MULTISYNQ_API_KEY || '2KVvXhyCg2BX8Jg0j5YvX13zmySqMDfLr5Vvo92c1w',
-                                appId: import.meta.env?.VITE_MULTISYNQ_APP_ID || 'io.multisynq.monad.chat',
-                                name: import.meta.env?.VITE_SESSION_NAME || 'monad-global-chat',
-                                password: import.meta.env?.VITE_SESSION_PASSWORD || 'monad2024'
+                                apiKey: window.VITE_MULTISYNQ_API_KEY || '2KVvXhyCg2BX8Jg0j5YvX13zmySqMDfLr5Vvo92c1w',
+                                appId: window.VITE_MULTISYNQ_APP_ID || 'io.multisynq.monad.chat',
+                                name: window.VITE_SESSION_NAME || 'monad-global-chat',
+                                password: window.VITE_SESSION_PASSWORD || 'monad2024'
                             };
                             
                             const session = await window.Multisynq.Session.join({
