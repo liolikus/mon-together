@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monad Together Chat - React</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@multisynq/client@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0f0f23;
+            color: #e2e8f0;
+        }
+        
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Monad Testnet Configuration
+        const MONAD_TESTNET = {
+            chainId: '0x279F', // 10143 in hex
+            chainName: 'Monad Testnet',
+            nativeCurrency: {
+                name: 'MON',
+                symbol: 'MON',
+                decimals: 18,
+            },
+            rpcUrls: ['https://testnet-rpc.monad.xyz'],
+            blockExplorerUrls: ['https://testnet.monadexplorer.com'],
+        };
+
+        // MultiSynq Model and View classes
+        class ChatModel extends window.Multisynq.Model {
+            init() {
+                this.messages = [];
+                this.userProfiles = {};
+            }
+            
+            addMessage(message) {
+                this.messages.push(message);
+                // Don't publish events - React will poll for updates
+            }
+            
+            updateUserProfile(userId, profile) {
+                this.userProfiles[userId] = profile;
+                // Don't publish events - React will poll for updates
+            }
+        }
+
+        // Register MultiSynq classes
+        ChatModel.register('ChatModel');
+
+        // MetaMask utilities
+        const checkMetaMask = () => {
+            if (window.ethereum && window.ethereum.isMetaMask) {
+                console.log('✓ MetaMask detected!');
+                return true;
+            } else {
+                console.log('✗ MetaMask not detected');
+                return false;
+            }
+        };
+
+        const connectWallet = async () => {
+            console.log('=== METAMASK CONNECTION ===');
+            
+            if (!checkMetaMask()) {
+                alert('MetaMask is not installed. Please install MetaMask and refresh the page.');
+                return null;
+            }
+            
+            try {
+                console.log('Requesting account access...');
+                
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts',
+                });
+                
+                console.log('✓ Accounts received:', accounts);
+
+                // Add/Switch to Monad testnet
+                try {
+                    console.log('Switching to Monad testnet...');
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: MONAD_TESTNET.chainId }],
+                    });
+                } catch (switchError) {
+                    console.log('Switch error:', switchError);
+                    if (switchError.code === 4902) {
+                        console.log('Adding Monad testnet...');
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [MONAD_TESTNET],
+                        });
+                    } else {
+                        throw switchError;
+                    }
+                }
+
+                const account = accounts[0];
+                console.log('✓ Wallet connected successfully:', account);
+                
+                return account;
+                
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert(`Failed to connect wallet: ${error.message}`);
+                return null;
+            }
+        };
+
+        // React Components
+        const WalletButton = ({ currentAccount, onConnect }) => {
+            const [isConnecting, setIsConnecting] = useState(false);
+
+            const handleConnect = async () => {
+                setIsConnecting(true);
+                const account = await connectWallet();
+                if (account) {
+                    onConnect(account);
+                }
+                setIsConnecting(false);
+            };
+
+            if (currentAccount) {
+                return (
+                    <div className="text-right">
+                        <div className="text-sm font-medium text-emerald-400">Connected</div>
+                        <div className="text-xs text-slate-400">
+                            {currentAccount.slice(0, 6)}...{currentAccount.slice(-4)}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <button
+                    onClick={handleConnect}
+                    disabled={isConnecting}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                    {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                </button>
+            );
+        };
+
+        const MessageItem = ({ message, currentAccount, onTip }) => {
+            const isOwnMessage = message.userId === currentAccount;
+            const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+            return (
+                <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`}>
+                    <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg backdrop-blur-sm ${
+                        isOwnMessage 
+                            ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' 
+                            : 'bg-slate-800/80 text-slate-100 border border-slate-700/50'
+                    }`}>
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-medium text-slate-300">
+                                {message.nickname || formatAddress(message.userId)}
+                            </span>
+                            {!isOwnMessage && currentAccount && (
+                                <button
+                                    onClick={() => onTip(message.userId)}
+                                    className="text-xs bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-2 py-1 rounded-full ml-2 hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg"
+                                >
+                                    💰 Tip
+                                </button>
+                            )}
+                        </div>
+                        <p className="text-sm leading-relaxed">{message.text}</p>
+                        {message.tip && (
+                            <div className="text-xs mt-2 px-2 py-1 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+                                💰 {message.tip.amount} MON tip
+                            </div>
+                        )}
+                        <div className="text-xs mt-2 opacity-60">
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const UsersList = ({ userProfiles, currentAccount, onTip }) => {
+            const users = Object.entries(userProfiles).filter(([userId]) => userId !== currentAccount);
+
+            return (
+                <div className="space-y-3">
+                    {users.map(([userId, profile]) => (
+                        <div key={userId} className="flex items-center justify-between p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 backdrop-blur-sm hover:bg-slate-800/80 transition-all duration-200">
+                            <div>
+                                <div className="text-sm font-medium text-slate-100">{profile.nickname}</div>
+                                <div className="text-xs text-slate-400">
+                                    {userId.slice(0, 6)}...{userId.slice(-4)}
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => onTip(userId)}
+                                className="text-xs bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-1.5 rounded-full hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg"
+                            >
+                                💰 Tip
+                            </button>
+                        </div>
+                    ))}
+                    {users.length === 0 && (
+                        <div className="text-sm text-slate-400 text-center py-6 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                            No other users connected
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const ChatApp = () => {
+            const [currentAccount, setCurrentAccount] = useState(null);
+            const [messages, setMessages] = useState([]);
+            const [userProfiles, setUserProfiles] = useState({});
+            const [messageText, setMessageText] = useState('');
+            const [chatModel, setChatModel] = useState(null);
+
+            const messagesEndRef = useRef(null);
+
+            // Initialize MultiSynq
+            useEffect(() => {
+                const initMultiSynq = async () => {
+                    try {
+                        if (window.Multisynq && window.Multisynq.Session) {
+                            console.log('MultiSynq available, joining session...');
+                            
+                            // Get configuration from environment variables or fallback to defaults
+                            const config = {
+                                apiKey: import.meta.env?.VITE_MULTISYNQ_API_KEY || '2KVvXhyCg2BX8Jg0j5YvX13zmySqMDfLr5Vvo92c1w',
+                                appId: import.meta.env?.VITE_MULTISYNQ_APP_ID || 'io.multisynq.monad.chat',
+                                name: import.meta.env?.VITE_SESSION_NAME || 'monad-global-chat',
+                                password: import.meta.env?.VITE_SESSION_PASSWORD || 'monad2024'
+                            };
+                            
+                            const session = await window.Multisynq.Session.join({
+                                apiKey: config.apiKey,
+                                appId: config.appId,
+                                name: config.name,
+                                password: config.password,
+                                model: ChatModel
+                            });
+                            
+                            console.log('MultiSynq session joined successfully:', session.id);
+                            
+                            const model = session.model || session.view?.model;
+                            
+                            setChatModel(model);
+                            
+                            // Initialize with existing data
+                            if (model) {
+                                setMessages([...model.messages]);
+                                setUserProfiles({...model.userProfiles});
+                                
+                                // Set up polling to sync with model state
+                                const syncInterval = setInterval(() => {
+                                    setMessages([...model.messages]);
+                                    setUserProfiles({...model.userProfiles});
+                                }, 100); // Poll every 100ms for real-time feel
+                                
+                                // Cleanup interval on unmount
+                                return () => clearInterval(syncInterval);
+                            }
+                        }
+                    } catch (error) {
+                        console.log('MultiSynq connection failed:', error);
+                    }
+                };
+
+                // Wait for MetaMask to load, then initialize
+                setTimeout(initMultiSynq, 1000);
+            }, []);
+
+            // Auto-scroll to bottom when new messages arrive
+            useEffect(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            // Check for existing MetaMask connection
+            useEffect(() => {
+                const checkExistingConnection = async () => {
+                    if (window.ethereum && window.ethereum.isMetaMask) {
+                        try {
+                            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                            if (accounts.length > 0) {
+                                const account = accounts[0];
+                                setCurrentAccount(account);
+                                console.log('Auto-connected to MetaMask:', account);
+                            }
+                        } catch (error) {
+                            console.error('Error checking MetaMask connection:', error);
+                        }
+                    }
+                };
+
+                checkExistingConnection();
+
+                // MetaMask event listeners
+                if (window.ethereum) {
+                    const handleAccountsChanged = (accounts) => {
+                        setCurrentAccount(accounts[0] || null);
+                    };
+
+                    const handleChainChanged = () => {
+                        window.location.reload();
+                    };
+
+                    window.ethereum.on('accountsChanged', handleAccountsChanged);
+                    window.ethereum.on('chainChanged', handleChainChanged);
+
+                    return () => {
+                        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+                        window.ethereum.removeListener('chainChanged', handleChainChanged);
+                    };
+                }
+            }, []);
+
+            // Handle auto-connection profile update when both account and chatModel are ready
+            useEffect(() => {
+                if (currentAccount && chatModel) {
+                    const profile = {
+                        nickname: `User ${currentAccount.slice(-4)}`,
+                        wallet: currentAccount,
+                        lastSeen: Date.now()
+                    };
+                    chatModel.updateUserProfile(currentAccount, profile);
+                }
+            }, [currentAccount, chatModel]);
+
+            const handleWalletConnect = (account) => {
+                setCurrentAccount(account);
+                
+                // Update user profile via MultiSynq
+                if (chatModel) {
+                    const profile = {
+                        nickname: `User ${account.slice(-4)}`,
+                        wallet: account,
+                        lastSeen: Date.now()
+                    };
+                    chatModel.updateUserProfile(account, profile);
+                }
+            };
+
+            const handleSendMessage = () => {
+                if (!messageText.trim() || !currentAccount || !chatModel) return;
+
+                const message = {
+                    id: Date.now() + Math.random(),
+                    userId: currentAccount,
+                    nickname: userProfiles[currentAccount]?.nickname || `User ${currentAccount.slice(-4)}`,
+                    wallet: currentAccount,
+                    text: messageText.trim(),
+                    timestamp: Date.now(),
+                };
+
+                chatModel.addMessage(message);
+                setMessageText('');
+            };
+
+            const handleTip = async (userId) => {
+                const amount = prompt('Enter tip amount in MON:', '0.1');
+                if (!amount || !userProfiles[userId]?.wallet) return;
+
+                try {
+                    // Simplified tip logic - in a real app, you'd implement the actual transaction
+                    const tipMessage = {
+                        id: Date.now() + Math.random(),
+                        userId: currentAccount,
+                        nickname: userProfiles[currentAccount]?.nickname || `User ${currentAccount.slice(-4)}`,
+                        wallet: currentAccount,
+                        text: `Sent ${amount} MON tip to ${userProfiles[userId]?.nickname || 'User'}`,
+                        timestamp: Date.now(),
+                        tip: { amount, recipient: userId },
+                    };
+
+                    if (chatModel) {
+                        chatModel.addMessage(tipMessage);
+                    }
+                } catch (error) {
+                    console.error('Error sending tip:', error);
+                    alert('Failed to send tip');
+                }
+            };
+
+            const userCount = Object.keys(userProfiles).length;
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                    {/* Header */}
+                    <div className="bg-slate-800/80 backdrop-blur-md shadow-xl border-b border-slate-700/50">
+                        <div className="max-w-4xl mx-auto px-4 py-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Monad Together Chat</h1>
+                                    <p className="text-sm text-slate-400 mt-1">
+                                        Global chat with MON tipping • <span className="text-emerald-400 font-medium">{userCount} users connected</span>
+                                    </p>
+                                </div>
+                                <WalletButton 
+                                    currentAccount={currentAccount} 
+                                    onConnect={handleWalletConnect}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Chat Container */}
+                    <div className="max-w-4xl mx-auto p-4">
+                        <div className="flex h-[calc(100vh-120px)] bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden">
+                            {/* Main Chat */}
+                            <div className="flex-1 flex flex-col">
+                                {/* Messages */}
+                                <div className="flex-1 overflow-y-auto p-4">
+                                    {messages.length === 0 ? (
+                                        <div className="flex items-center justify-center h-full text-slate-400">
+                                            <div className="text-center">
+                                                <div className="text-6xl mb-6 opacity-50">💬</div>
+                                                <p className="text-lg font-medium mb-2">No messages yet</p>
+                                                <p className="text-sm opacity-75">Start the conversation and connect with other users!</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {messages.map((message) => (
+                                                <MessageItem
+                                                    key={message.id}
+                                                    message={message}
+                                                    currentAccount={currentAccount}
+                                                    onTip={handleTip}
+                                                />
+                                            ))}
+                                            <div ref={messagesEndRef} />
+                                        </>
+                                    )}
+                                </div>
+
+                                {/* Message Input */}
+                                <div className="border-t border-slate-700/50 p-4 bg-slate-800/50">
+                                    <div className="flex gap-3">
+                                        <input
+                                            type="text"
+                                            value={messageText}
+                                            onChange={(e) => setMessageText(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                            placeholder={currentAccount ? "Type a message..." : "Connect wallet to chat"}
+                                            disabled={!currentAccount}
+                                            className="flex-1 px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 disabled:bg-slate-800/50 disabled:text-slate-500 transition-all duration-200"
+                                        />
+                                        <button
+                                            onClick={handleSendMessage}
+                                            disabled={!currentAccount || !messageText.trim()}
+                                            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl font-medium"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Sidebar */}
+                            <div className="w-72 bg-slate-800/50 border-l border-slate-700/50">
+                                <div className="p-6">
+                                    <h3 className="font-semibold text-slate-100 mb-4 text-lg flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                        Connected Users
+                                    </h3>
+                                    <UsersList 
+                                        userProfiles={userProfiles}
+                                        currentAccount={currentAccount}
+                                        onTip={handleTip}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ChatApp />);
+    </script>
+</body>
+</html>

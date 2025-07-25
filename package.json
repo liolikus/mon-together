@@ -1,0 +1,30 @@
+{
+  "name": "monad-together-chat",
+  "version": "1.0.0",
+  "description": "Real-time collaborative chat application with MultiSynq and MetaMask integration on Monad Testnet",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "multisynq",
+    "monad",
+    "chat",
+    "blockchain",
+    "metamask",
+    "real-time"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/monad-together-chat.git"
+  },
+  "homepage": "https://monad-together-chat.vercel.app"
+}
