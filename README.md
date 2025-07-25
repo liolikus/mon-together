@@ -2,6 +2,9 @@
 
 A real-time collaborative chat application with **tip system** built with **MultiSynq** and **React**, featuring **MetaMask** wallet integration on the **Monad Testnet**.
 
+<img width="887" height="904" alt="image" src="https://github.com/user-attachments/assets/e0a12324-35bb-463d-8651-0b73f9cec3ae" />
+
+
 ## Features
 
 - 🔗 **Real-time Global Chat** - All users share the same synchronized chat session
