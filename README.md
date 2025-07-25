@@ -25,8 +25,6 @@ A real-time collaborative chat application with **tip system** built with **Mult
 6. **Connect Wallet**: Click "Connect Wallet" to join the chat
 7. **Start Chatting**: Send messages and see real-time updates from other users
 
-### Production Demo
-Visit the live demo at: [https://monad-together-chat.vercel.app](https://monad-together-chat.vercel.app)
 
 ## Technology Stack
 
