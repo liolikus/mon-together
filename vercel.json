@@ -11,11 +11,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "VITE_MULTISYNQ_API_KEY": "@multisynq-api-key",
-    "VITE_MULTISYNQ_APP_ID": "@multisynq-app-id",
-    "VITE_SESSION_NAME": "@session-name",
-    "VITE_SESSION_PASSWORD": "@session-password"
-  }
+  ]
 }
